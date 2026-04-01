@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import java.util.Map.*;
 
 
+
 public class Preprocessing {
 
     String file = "test_csv.csv";
@@ -17,10 +18,9 @@ public class Preprocessing {
         System.out.println("There are" + test.size() + "rows");
         Queue<Entry<Long, List<Row>>> sorted_list = p.sortByTaskAndTime(test);
         System.out.println(sorted_list.toString());
-        /*Map<Row, Vector<Integer>> oneHotEncoding = p.oneHotEncoding(test);
-        System.out.println(oneHotEncoding.toString())*/;
-
-
+        p.normalizeColumns(test);
+        Queue<Entry<Long, List<Row>>> scaled_sorted_list = p.sortByTaskAndTime(test);
+        System.out.println(scaled_sorted_list.toString());
     }
 
     public List<Row> loadValues(String path) {
@@ -111,5 +111,61 @@ public class Preprocessing {
         return encodingMap;
     }
 
+
+
+    public void normalizeColumns(List<Row> data) {
+        /*int size = data.size();
+        INDArray features = Nd4j.create(size,5);
+
+        for(int i = 0; i<size;i++){
+        Row r = data.get(i);
+            features.putScalar(i,0,r.getAvgUsageCPU());
+            features.putScalar(i,1,r.getAvgUsageMemory());
+            features.putScalar(i,2,r.getMaxUsageCpu());
+            features.putScalar(i,3,r.getAvgUsageMemory());
+            features.putScalar(i,4,r.getAssignedMemory());
+
+            DataSet set = new DataSet(features,features);
+
+            NormalizerMinMaxScaler scaler = new NormalizerMinMaxScaler(0,1);
+            scaler.fit(set);
+            scaler.transform(set);
+
+            INDArray scaledArray = set.getFeatures();
+
+            for(int z = 0; z<size;z++){
+                Row currentR = data.get(z);
+                currentR.setAvgUsageCPU(scaledArray.getDouble(z,0));
+                currentR.setAvgUsageMemory(scaledArray.getDouble(z,1));
+                currentR.setMaxUsageCpu(scaledArray.getDouble(z,2));
+                currentR.setMaxUsageMemory(scaledArray.getDouble(z,3));
+                currentR.setAssignedMemory(scaledArray.getDouble(z,4));
+            }
+
+        }
+    }*/
+            double minCPU = data.stream().mapToDouble(Row::getAvgUsageCPU).min().getAsDouble();
+            double maxCPU = data.stream().mapToDouble(Row::getAvgUsageCPU).max().getAsDouble();
+
+            double minMemory = data.stream().mapToDouble(Row::getAvgUsageMemory).min().getAsDouble();
+            double maxMemory = data.stream().mapToDouble(Row::getAvgUsageMemory).max().getAsDouble();
+
+            double minMaxCPU = data.stream().mapToDouble(Row::getMaxUsageCpu).min().getAsDouble();
+            double maxMaxCPU = data.stream().mapToDouble(Row::getMaxUsageCpu).max().getAsDouble();
+
+            double minMaxMemory = data.stream().mapToDouble(Row::getMaxUsageMemory).min().getAsDouble();
+            double maxMaxMemory = data.stream().mapToDouble(Row::getMaxUsageMemory).max().getAsDouble();
+
+            double minAssigned = data.stream().mapToDouble(Row::getAssignedMemory).min().getAsDouble();
+            double maxAssigned = data.stream().mapToDouble(Row::getAssignedMemory).max().getAsDouble();
+
+            for (Row r : data) {
+                r.setAvgUsageCPU((r.getAvgUsageCPU() - minCPU) / (maxCPU - minCPU));
+                r.setAvgUsageMemory((r.getAvgUsageMemory() - minMemory) / (maxMemory - minMemory));
+                r.setMaxUsageCpu((r.getMaxUsageCpu() - minMaxCPU)/(maxMaxCPU-minMaxCPU));
+                r.setMaxUsageMemory((r.getMaxUsageMemory() - minMaxMemory)/(maxMaxMemory-minMaxMemory));
+                r.setAssignedMemory((r.getAssignedMemory() - minAssigned) / (maxAssigned - minAssigned));
+            }
+        }
 
 }
