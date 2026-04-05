@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import java.util.Map.*;
 
 
-
 public class Preprocessing {
 
     String file = "test_csv.csv";
@@ -52,7 +51,6 @@ public class Preprocessing {
                     double maxUsageMemory = Double.parseDouble(maxUsageMemoryStr.replaceAll("[^\\d.]", "").trim());
                     double assignedMemory = Double.parseDouble(data[10]);
 
-
                     Row dataRow = new Row(timestamp, eventType, collectionID, startTime, endTime, avgUsageCPU, avgUsageMemory, maxUsageCPU, maxUsageMemory, assignedMemory);
                     lines.add(dataRow);
                 } catch (NumberFormatException e) {
@@ -86,7 +84,7 @@ public class Preprocessing {
                 );
     }
 
-    public Map<Row, Vector<Integer>> oneHotEncoding(List<Row> data) {
+    public Map<Row, List<Integer>> oneHotEncoding(List<Row> data) {
         int[] uniqueEventTypes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
         /*Map<Integer,Integer> eventTypeToVectorIndex = new HashMap<>();
@@ -94,19 +92,10 @@ public class Preprocessing {
         for(int type: uniqueEventTypes){
             eventTypeToVectorIndex.put(type,i++);
         }*/
-        Map<Row, Vector<Integer>> encodingMap = new HashMap<>();
+        Map<Row, List<Integer>> encodingMap = new HashMap<>();
         for (Row r : data) {
-            int index = r.getEventType();
-            Vector<Integer> v = new Vector<>();
-            v.setSize(11);
-            for (int j = 0; j < v.size(); j++) {
-                if (j == index) {
-                    v.set(j, 1);
-                } else {
-                    v.set(j, 0);
-                }
-                encodingMap.put(r, v);
-            }
+            List<Integer> v = new ArrayList<>(Collections.nCopies(11,0));
+            encodingMap.put(r, v);
         }
         return encodingMap;
     }
@@ -168,4 +157,11 @@ public class Preprocessing {
             }
         }
 
+        public Map<String,List<Row>> splitData (List<Row> data)
+        {
+            Map<String, List<Row>> splitData =new HashMap<>();
+
+            List<Row> trainingSet = new ArrayList<>(data.subList(0,(int)(data.size()*0.7)));
+            List<Row> TestingSet = new ArrayList<>(data.subList(0,(int)(data.size()*0.3)));
+        }
 }
