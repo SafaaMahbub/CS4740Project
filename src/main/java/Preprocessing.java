@@ -1,27 +1,10 @@
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.Map.*;
 
 
 public class Preprocessing {
-
-    String file = "test_csv.csv";
-
-    public static void main(String[] args) {
-        Preprocessing p = new Preprocessing();
-        List<Row> test = p.loadValues(p.file);
-        System.out.println("There are" + test.size() + "rows");
-        Queue<Entry<Long, List<Row>>> sorted_list = p.sortByTaskAndTime(test);
-        System.out.println(sorted_list.toString());
-        p.normalizeColumns(test);
-        Queue<Entry<Long, List<Row>>> scaled_sorted_list = p.sortByTaskAndTime(test);
-        System.out.println(scaled_sorted_list.toString());
-    }
-
     public List<Row> loadValues(String path) {
         List<Row> lines = new ArrayList<>();
         try {
@@ -94,12 +77,11 @@ public class Preprocessing {
         }*/
         Map<Row, List<Integer>> encodingMap = new HashMap<>();
         for (Row r : data) {
-            List<Integer> v = new ArrayList<>(Collections.nCopies(11,0));
+            List<Integer> v = new ArrayList<>(Collections.nCopies(11, 0));
             encodingMap.put(r, v);
         }
         return encodingMap;
     }
-
 
 
     public void normalizeColumns(List<Row> data) {
@@ -133,35 +115,120 @@ public class Preprocessing {
 
         }
     }*/
-            double minCPU = data.stream().mapToDouble(Row::getAvgUsageCPU).min().getAsDouble();
-            double maxCPU = data.stream().mapToDouble(Row::getAvgUsageCPU).max().getAsDouble();
+        double minCPU = data.stream().mapToDouble(Row::getAvgUsageCPU).min().getAsDouble();
+        double maxCPU = data.stream().mapToDouble(Row::getAvgUsageCPU).max().getAsDouble();
 
-            double minMemory = data.stream().mapToDouble(Row::getAvgUsageMemory).min().getAsDouble();
-            double maxMemory = data.stream().mapToDouble(Row::getAvgUsageMemory).max().getAsDouble();
+        double minMemory = data.stream().mapToDouble(Row::getAvgUsageMemory).min().getAsDouble();
+        double maxMemory = data.stream().mapToDouble(Row::getAvgUsageMemory).max().getAsDouble();
 
-            double minMaxCPU = data.stream().mapToDouble(Row::getMaxUsageCpu).min().getAsDouble();
-            double maxMaxCPU = data.stream().mapToDouble(Row::getMaxUsageCpu).max().getAsDouble();
+        double minMaxCPU = data.stream().mapToDouble(Row::getMaxUsageCpu).min().getAsDouble();
+        double maxMaxCPU = data.stream().mapToDouble(Row::getMaxUsageCpu).max().getAsDouble();
 
-            double minMaxMemory = data.stream().mapToDouble(Row::getMaxUsageMemory).min().getAsDouble();
-            double maxMaxMemory = data.stream().mapToDouble(Row::getMaxUsageMemory).max().getAsDouble();
+        double minMaxMemory = data.stream().mapToDouble(Row::getMaxUsageMemory).min().getAsDouble();
+        double maxMaxMemory = data.stream().mapToDouble(Row::getMaxUsageMemory).max().getAsDouble();
 
-            double minAssigned = data.stream().mapToDouble(Row::getAssignedMemory).min().getAsDouble();
-            double maxAssigned = data.stream().mapToDouble(Row::getAssignedMemory).max().getAsDouble();
+        double minAssigned = data.stream().mapToDouble(Row::getAssignedMemory).min().getAsDouble();
+        double maxAssigned = data.stream().mapToDouble(Row::getAssignedMemory).max().getAsDouble();
 
-            for (Row r : data) {
-                r.setAvgUsageCPU((r.getAvgUsageCPU() - minCPU) / (maxCPU - minCPU));
-                r.setAvgUsageMemory((r.getAvgUsageMemory() - minMemory) / (maxMemory - minMemory));
-                r.setMaxUsageCpu((r.getMaxUsageCpu() - minMaxCPU)/(maxMaxCPU-minMaxCPU));
-                r.setMaxUsageMemory((r.getMaxUsageMemory() - minMaxMemory)/(maxMaxMemory-minMaxMemory));
-                r.setAssignedMemory((r.getAssignedMemory() - minAssigned) / (maxAssigned - minAssigned));
+        for (Row r : data) {
+            r.setAvgUsageCPU((r.getAvgUsageCPU() - minCPU) / (maxCPU - minCPU));
+            r.setAvgUsageMemory((r.getAvgUsageMemory() - minMemory) / (maxMemory - minMemory));
+            r.setMaxUsageCpu((r.getMaxUsageCpu() - minMaxCPU) / (maxMaxCPU - minMaxCPU));
+            r.setMaxUsageMemory((r.getMaxUsageMemory() - minMaxMemory) / (maxMaxMemory - minMaxMemory));
+            r.setAssignedMemory((r.getAssignedMemory() - minAssigned) / (maxAssigned - minAssigned));
+        }
+    }
+
+    public Map<String, List<Row>> splitData(List<Row> data) {
+        Map<String, List<Row>> splitData = new HashMap<>();
+
+        List<Row> trainingSet = new ArrayList<>(data.subList(0, (int) (data.size() * 0.7)));
+        List<Row> testingSet = new ArrayList<>(data.subList((int) (data.size() * 0.7), data.size()));
+
+        splitData.put("train", trainingSet);
+        splitData.put("test", testingSet);
+
+        return splitData;
+    }
+
+    /**
+     * Creates sequences of data and corresponding labels based on a sliding window.
+     *
+     * @param sortedData a queue of entries, where each entry contains a long key (e.g. identifier)
+     *                   and a list of Row objects representing data points.
+     * @param windowSize the size of the sliding window to generate sequences of data.
+     * @return a SequenceData object containing the generated sequences and their corresponding labels.
+     */
+    public SequenceData createSequences(Queue<Map.Entry<Long, List<Row>>> sortedData, int windowSize) {
+        List<double[][]> sequences = new ArrayList<>();
+        List<double[]> labels = new ArrayList<>();
+
+        for (var e : sortedData) {
+            var rows = e.getValue();
+
+            if (rows.size() <= windowSize) continue;
+
+            for (int i = 0; i < rows.size() - windowSize; i++) {
+                var sequence = new double[windowSize][5];
+
+                for (int j = 0; j < windowSize; j++) {
+                    var r = rows.get(i + j);
+                    sequence[j][0] = r.getAvgUsageCPU();
+                    sequence[j][1] = r.getAvgUsageMemory();
+                    sequence[j][2] = r.getMaxUsageCpu();
+                    sequence[j][3] = r.getMaxUsageMemory();
+                    sequence[j][4] = r.getAssignedMemory();
+                }
+
+                Row next = rows.get(i + windowSize);
+                double[] label = new double[5];
+                label[0] = next.getAvgUsageCPU();
+                label[1] = next.getAvgUsageMemory();
+                label[2] = next.getMaxUsageCpu();
+                label[3] = next.getMaxUsageMemory();
+                label[4] = next.getAssignedMemory();
+
+                sequences.add(sequence);
+                labels.add(label);
             }
         }
 
-        public Map<String,List<Row>> splitData (List<Row> data)
-        {
-            Map<String, List<Row>> splitData =new HashMap<>();
+        return new SequenceData(sequences, labels);
+    }
 
-            List<Row> trainingSet = new ArrayList<>(data.subList(0,(int)(data.size()*0.7)));
-            List<Row> TestingSet = new ArrayList<>(data.subList(0,(int)(data.size()*0.3)));
+    public void exportSequencesToCSV(SequenceData data, String xPath, String yPath) throws IOException {
+
+        BufferedWriter xWriter = new BufferedWriter(new FileWriter(xPath));
+        BufferedWriter yWriter = new BufferedWriter(new FileWriter(yPath));
+
+        for (int i = 0; i < data.getSequences().size(); i++) {
+
+            double[][] seq = data.getSequences().get(i);
+            double[] label = data.getLabels().get(i);
+
+            StringBuilder sb = new StringBuilder();
+
+            for (double[] step : seq) {
+                for (double v : step) {
+                    sb.append(v).append(",");
+                }
+            }
+
+            sb.setLength(sb.length() - 1);
+            xWriter.write(sb.toString());
+            xWriter.newLine();
+
+            StringBuilder lb = new StringBuilder();
+            for (double v : label) {
+                lb.append(v).append(",");
+            }
+
+            lb.setLength(lb.length() - 1);
+            yWriter.write(lb.toString());
+            yWriter.newLine();
         }
+
+        xWriter.close();
+        yWriter.close();
+    }
 }
