@@ -1,0 +1,22 @@
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# macOS
+.DS_Store
+
+# Generated CSV files
+X_train.csv
+y_train.csv
+X_test.csv
+y_test.csv
+test_csv.csv
